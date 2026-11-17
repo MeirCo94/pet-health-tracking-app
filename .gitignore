@@ -1,0 +1,23 @@
+# dependencies
+node_modules/
+
+# Expo / native build output
+.expo/
+dist/
+web-build/
+*.hbc
+
+# env and secrets (never commit)
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.keystore
+*.jks
+google-services.json
+GoogleService-Info.plist
+
+# logs and OS files
+npm-debug.log*
+.DS_Store
