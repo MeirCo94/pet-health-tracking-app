@@ -29,6 +29,10 @@ cd apps/mobile && npm start   # Expo dev server
 
 Use `npx expo install <package>` to add Expo-related packages so versions match the SDK. Native code requires a development build (`eas build --profile development`), because Expo Go only includes its bundled modules.
 
+## Sign-in
+
+The app uses email and password sign-in. While developing, turn off email confirmation in the Supabase dashboard so new accounts can sign in straight away: Authentication > Sign In / Providers > Email > Confirm email (menu names may differ slightly). Turn it back on before launch. Without it, sign-up shows "Check your email to confirm your account" and the account cannot sign in until the link is clicked. Supabase's built-in email sender is also heavily rate limited. Sign in with Apple and Google come later.
+
 ## Health data
 
 This app tracks activity against goals. It is not a medical device and does not diagnose. Health data is sensitive: never commit real dog or owner records, and use seed fixtures for tests.
