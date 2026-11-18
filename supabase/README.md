@@ -1,5 +1,27 @@
 # Supabase
 
-Database migrations and row-level security (RLS) policies live here. Schema changes go through migrations only, and every new table ships with RLS policies in the same PR.
+Database migrations and row-level security (RLS) policies live in `migrations/`. Schema changes go through migrations only, and every new table ships with RLS policies in the same PR.
 
-The Supabase project is not created yet (Phase 0 remaining step). Once it exists, the project reference and anon key go in `apps/mobile/.env` locally and the platform secret store for production. Never commit either.
+Project reference: `mzawvhigdxwcqpadjeml`. The app reads its URL and publishable key from `apps/mobile/.env` (see `.env.example`). Never commit the key file, and never put the service role key in the app.
+
+## Migrations
+
+| File | What it does |
+|---|---|
+| `20261117170000_core_tables.sql` | `dogs`, `goals`, `entries` with RLS: an owner only sees and changes their own data. Anonymous visitors get no access. |
+
+## Applying a migration
+
+The migrations are not applied to the hosted project automatically.
+
+1. Open the project in the Supabase dashboard, then **SQL Editor** > **New query**.
+2. Paste the whole contents of the migration file and click **Run**.
+3. Open **Table Editor**. `dogs`, `goals` and `entries` should appear, each marked as having RLS enabled.
+
+Apply migrations in filename order. Each file runs once. Do not edit a migration that has been applied; add a new one instead.
+
+## Tests
+
+`packages/db-tests` applies every migration to an in-process Postgres (PGlite) with a stand-in for Supabase's `auth` schema and roles, then checks the RLS rules: owners see only their own rows, other users and anonymous visitors are blocked, and constraints hold. It runs with `npm test` and in CI.
+
+This is a close approximation, not the hosted service. After applying a migration for real, spot-check it in the dashboard.
