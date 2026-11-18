@@ -1,79 +1,102 @@
+import { formatAge } from '@watchdog/shared';
+import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { ErrorMessage, PrimaryButton, SecondaryButton } from '../../components/ui';
 import { useSession } from '../../lib/auth';
 import { supabase } from '../../lib/supabase';
 import { useTheme } from '../../lib/theme';
+import { useDogs } from '../../lib/useDogs';
 
 const SIGN_OUT_FAILED = 'Could not sign out. Check your connection and try again.';
 
 export default function HomeScreen() {
   const theme = useTheme();
   const { session } = useSession();
+  const { dogs, error, reload } = useDogs();
   const [signingOut, setSigningOut] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [signOutError, setSignOutError] = useState<string | null>(null);
 
   async function signOut() {
     if (signingOut) return;
     setSigningOut(true);
-    setError(null);
+    setSignOutError(null);
     try {
       // On success the session clears and the router moves to the sign-in screen.
-      const { error: signOutError } = await supabase.auth.signOut();
-      if (signOutError) setError(SIGN_OUT_FAILED);
+      const { error: failure } = await supabase.auth.signOut();
+      if (failure) setSignOutError(SIGN_OUT_FAILED);
     } catch {
-      setError(SIGN_OUT_FAILED);
+      setSignOutError(SIGN_OUT_FAILED);
     } finally {
       setSigningOut(false);
     }
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <Text style={[styles.title, { color: theme.text }]}>Watchdog</Text>
-      <Text style={[styles.subtitle, { color: theme.muted }]}>
-        Signed in as {session?.user.email ?? 'unknown'}
-      </Text>
-      <Text style={[styles.subtitle, { color: theme.muted }]}>Dogs and goals come next.</Text>
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
+      <ScrollView contentContainerStyle={styles.container}>
+        <Text style={[styles.title, { color: theme.text }]}>Your dogs</Text>
 
-      {error ? (
-        <Text accessibilityRole="alert" style={[styles.error, { color: theme.error }]}>
-          {error}
-        </Text>
-      ) : null}
+        {error ? (
+          <View style={styles.block}>
+            <ErrorMessage>{error}</ErrorMessage>
+            <SecondaryButton label="Try again" onPress={reload} />
+          </View>
+        ) : null}
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityState={{ disabled: signingOut }}
-        disabled={signingOut}
-        onPress={signOut}
-        style={[styles.button, { borderColor: theme.border, opacity: signingOut ? 0.7 : 1 }]}
-      >
-        {signingOut ? (
-          <ActivityIndicator color={theme.text} />
-        ) : (
-          <Text style={{ color: theme.text, fontSize: 16 }}>Sign out</Text>
-        )}
-      </Pressable>
+        {dogs === null && !error ? <ActivityIndicator accessibilityLabel="Loading dogs" style={styles.block} /> : null}
+
+        {dogs && dogs.length === 0 ? (
+          <View style={[styles.empty, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <Text style={[styles.emptyTitle, { color: theme.text }]}>No dogs yet</Text>
+            <Text style={{ color: theme.muted, fontSize: 15 }}>
+              Add your first dog to start setting goals and tracking how they are doing.
+            </Text>
+            <PrimaryButton label="Add your first dog" onPress={() => router.push('/dogs/new')} />
+          </View>
+        ) : null}
+
+        {dogs && dogs.length > 0 ? (
+          <>
+            {dogs.map((dog) => {
+              const details = [dog.breed, formatAge(dog.birthDate)].filter(Boolean).join(' · ');
+              return (
+                <Pressable
+                  key={dog.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${dog.name}${details ? `, ${details}` : ''}`}
+                  onPress={() => router.push(`/dogs/${dog.id}`)}
+                  style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}
+                >
+                  <Text style={[styles.cardTitle, { color: theme.text }]}>{dog.name}</Text>
+                  <Text style={{ color: theme.muted, fontSize: 14 }}>{details || 'No details yet'}</Text>
+                </Pressable>
+              );
+            })}
+            <PrimaryButton label="Add a dog" onPress={() => router.push('/dogs/new')} />
+          </>
+        ) : null}
+
+        <View style={[styles.account, { borderTopColor: theme.border }]}>
+          <Text style={{ color: theme.muted, fontSize: 14 }}>Signed in as {session?.user.email ?? 'unknown'}</Text>
+          {signOutError ? <ErrorMessage>{signOutError}</ErrorMessage> : null}
+          <SecondaryButton label={signingOut ? 'Signing out…' : 'Sign out'} onPress={signOut} disabled={signingOut} />
+        </View>
+      </ScrollView>
       <StatusBar style="auto" />
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 8 },
-  title: { fontSize: 28, fontWeight: '600' },
-  subtitle: { fontSize: 16, textAlign: 'center' },
-  error: { fontSize: 14, textAlign: 'center', marginTop: 8 },
-  button: {
-    marginTop: 24,
-    minWidth: 120,
-    minHeight: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
+  container: { padding: 24, gap: 16, maxWidth: 560, width: '100%', alignSelf: 'center' },
+  title: { fontSize: 28, fontWeight: '700' },
+  block: { gap: 12 },
+  empty: { borderWidth: 1, borderRadius: 14, padding: 20, gap: 12 },
+  emptyTitle: { fontSize: 18, fontWeight: '600' },
+  card: { borderWidth: 1, borderRadius: 14, padding: 16, gap: 4 },
+  cardTitle: { fontSize: 18, fontWeight: '600' },
+  account: { marginTop: 24, paddingTop: 16, borderTopWidth: 1, gap: 12 },
 });
