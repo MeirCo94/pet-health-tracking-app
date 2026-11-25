@@ -1,3 +1,4 @@
+import { parseDate, toLocalDateString } from './dogs';
 import { formatNumber, MAX_GOAL_TARGET, parseTarget, singular } from './goalSetup';
 import type { DogGoal, GoalPeriod } from './goalSetup';
 
@@ -19,7 +20,10 @@ export interface DogEntry {
 /** What the log form holds: raw text, nothing parsed yet. */
 export interface EntryFormInput {
   value: string;
-  day: LogDay;
+  /** YYYY-MM-DD, local. */
+  date: string;
+  /** 24-hour HH:mm, local. */
+  time: string;
   note: string;
 }
 
@@ -31,10 +35,33 @@ export interface EntryValues {
 
 export interface EntryFormErrors {
   value?: string;
+  date?: string;
+  time?: string;
   note?: string;
 }
 
-export type LogDay = 'today' | 'yesterday';
+const TIME_SHAPE = /^([01]\d|2[0-3]):([0-5]\d)$/;
+
+/** How far ahead of the clock a logged time may be, to forgive small clock differences. */
+const FUTURE_TOLERANCE_MS = 60 * 1000;
+
+/** A time as 24-hour HH:mm, for example "07:05". */
+export function formatTime(date: Date): string {
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
+
+/** The form's starting date and time: right now. */
+export function nowFormValues(now: Date): { date: string; time: string } {
+  return { date: toLocalDateString(now), time: formatTime(now) };
+}
+
+/** Combines YYYY-MM-DD and HH:mm in local time. Returns null if either is not valid. */
+export function combineDateAndTime(date: string, time: string): Date | null {
+  const d = parseDate(date.trim());
+  const t = TIME_SHAPE.exec(time.trim());
+  if (!d || !t) return null;
+  return new Date(d.year, d.month - 1, d.day, Number(t[1]), Number(t[2]), 0, 0);
+}
 
 /**
  * The half-open window [start, end) in the device's local time that a goal period covers.
@@ -57,12 +84,6 @@ export function msUntilNextDay(now: Date): number {
 /** The earliest moment any goal's current period can begin: the start of this week. */
 export function earliestPeriodStart(now: Date): Date {
   return periodRange('weekly', now).start;
-}
-
-/** When to record an entry: right now for today, or noon yesterday for a forgotten day. */
-export function loggedAtFor(day: LogDay, now: Date): Date {
-  if (day === 'today') return new Date(now.getTime());
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 12, 0, 0);
 }
 
 export interface GoalProgress {
@@ -125,23 +146,35 @@ export function entriesInPeriod<T extends Pick<DogEntry, 'goalId' | 'loggedAt'>>
     .sort((a, b) => new Date(b.loggedAt).getTime() - new Date(a.loggedAt).getTime());
 }
 
-export function validateEntry(input: EntryFormInput): EntryFormErrors {
+export function validateEntry(input: EntryFormInput, now: Date = new Date()): EntryFormErrors {
   const errors: EntryFormErrors = {};
   const value = parseTarget(input.value);
   if (input.value.trim().length === 0) errors.value = 'Enter an amount.';
   else if (value === null) errors.value = 'Enter a number, for example 30. Use at most 2 decimal places.';
   else if (value <= 0) errors.value = 'The amount must be more than zero.';
   else if (value > MAX_GOAL_TARGET) errors.value = 'That number is too large.';
+
+  const dateOk = parseDate(input.date.trim()) !== null;
+  const timeOk = TIME_SHAPE.test(input.time.trim());
+  if (!dateOk) errors.date = 'Choose a date.';
+  if (!timeOk) errors.time = 'Use 24-hour time, like 07:30 or 14:30.';
+  if (dateOk && timeOk) {
+    const when = combineDateAndTime(input.date, input.time);
+    if (when && when.getTime() > now.getTime() + FUTURE_TOLERANCE_MS) {
+      errors.time = 'That time has not happened yet.';
+    }
+  }
+
   if (input.note.length > MAX_ENTRY_NOTE_LENGTH) errors.note = `Use ${MAX_ENTRY_NOTE_LENGTH} characters or fewer.`;
   return errors;
 }
 
 /** Cleans form text for saving. Call only after validateEntry finds no errors. */
-export function parseEntryInput(input: EntryFormInput, now: Date): EntryValues {
+export function parseEntryInput(input: EntryFormInput): EntryValues {
   const note = input.note.trim();
   return {
     value: parseTarget(input.value) ?? 0,
-    loggedAt: loggedAtFor(input.day, now),
+    loggedAt: combineDateAndTime(input.date, input.time) ?? new Date(),
     note: note.length > 0 ? note : null,
   };
 }

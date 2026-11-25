@@ -1,26 +1,21 @@
 import {
   entriesInPeriod,
   formatNumber,
+  nowFormValues,
   parseEntryInput,
   summarizeGoal,
   validateEntry,
   type DogEntry,
   type EntryFormErrors,
-  type LogDay,
 } from '@watchdog/shared';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { ChoiceGroup, ErrorMessage, PrimaryButton, ProgressBar, SecondaryButton, TextField } from '../../../../../components/ui';
+import { DateField, ErrorMessage, PrimaryButton, ProgressBar, SecondaryButton, TextField } from '../../../../../components/ui';
 import { createEntry, deleteEntry } from '../../../../../lib/entries';
 import { useTheme } from '../../../../../lib/theme';
 import { useWeekEntries } from '../../../../../lib/useEntries';
 import { useGoal } from '../../../../../lib/useGoals';
-
-const DAY_OPTIONS: { value: LogDay; label: string }[] = [
-  { value: 'today', label: 'Today' },
-  { value: 'yesterday', label: 'Yesterday' },
-];
 
 function first(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
@@ -39,7 +34,10 @@ export default function LogScreen() {
   const weekEntries = useWeekEntries(dogId);
 
   const [value, setValue] = useState('');
-  const [day, setDay] = useState<LogDay>('today');
+  // Starts at the moment the screen opens. Change it to log something that happened earlier.
+  const [start] = useState(() => nowFormValues(new Date()));
+  const [date, setDate] = useState(start.date);
+  const [time, setTime] = useState(start.time);
   const [note, setNote] = useState('');
   const [errors, setErrors] = useState<EntryFormErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -94,15 +92,15 @@ export default function LogScreen() {
 
   async function submit() {
     if (!goal || pending) return;
-    const input = { value, day, note };
+    const input = { value, date, time, note };
     const found = validateEntry(input);
     setErrors(found);
     setSubmitError(null);
-    if (found.value || found.note) return;
+    if (found.value || found.date || found.time || found.note) return;
 
     setSaving(true);
     try {
-      await createEntry(goal, parseEntryInput(input, new Date()));
+      await createEntry(goal, parseEntryInput(input));
     } catch (e) {
       setSubmitError(e instanceof Error ? e.message : 'Could not save. Try again.');
       setSaving(false);
@@ -145,7 +143,25 @@ export default function LogScreen() {
           editable={!pending}
           autoFocus
         />
-        <ChoiceGroup label="When" options={DAY_OPTIONS} value={day} onChange={setDay} disabled={pending} />
+        <View style={styles.when}>
+          <View style={styles.whenDate}>
+            <DateField label="Date" value={date} onChange={setDate} maxDate={now} error={errors.date} disabled={pending} />
+          </View>
+          <View style={styles.whenTime}>
+            <TextField
+              label="Time (24-hour)"
+              value={time}
+              onChangeText={setTime}
+              keyboardType="numbers-and-punctuation"
+              autoComplete="off"
+              autoCorrect={false}
+              maxLength={5}
+              placeholder="14:30"
+              error={errors.time}
+              editable={!pending}
+            />
+          </View>
+        </View>
         <TextField
           label="Note (optional)"
           value={note}
@@ -194,6 +210,9 @@ const styles = StyleSheet.create({
   loading: { marginTop: 48 },
   title: { fontSize: 24, fontWeight: '700' },
   block: { gap: 12 },
+  when: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, alignItems: 'flex-start' },
+  whenDate: { flexGrow: 1, minWidth: 180 },
+  whenTime: { width: 140 },
   history: { borderTopWidth: 1, paddingTop: 20 },
   heading: { fontSize: 17, fontWeight: '600' },
   entryRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },

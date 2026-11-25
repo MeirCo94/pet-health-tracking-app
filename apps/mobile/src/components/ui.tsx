@@ -1,5 +1,7 @@
-import type { ReactNode } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
+import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
+import { parseDate, toLocalDateString } from '@watchdog/shared';
+import { createElement, type ReactNode } from 'react';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
 import { useTheme } from '../lib/theme';
 
 export function PrimaryButton({
@@ -132,6 +134,105 @@ export function ChoiceGroup<T extends string>({
   );
 }
 
+function dateFromString(value: string): Date {
+  const parsed = parseDate(value);
+  return parsed ? new Date(parsed.year, parsed.month - 1, parsed.day) : new Date();
+}
+
+/**
+ * A date picker that holds a YYYY-MM-DD string. It uses the browser's date input on web,
+ * the compact system picker on iOS and the system dialog on Android.
+ */
+export function DateField({
+  label,
+  value,
+  onChange,
+  maxDate,
+  error,
+  disabled = false,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  /** Latest date that can be chosen. */
+  maxDate?: Date;
+  error?: string;
+  disabled?: boolean;
+}) {
+  const theme = useTheme();
+  const current = dateFromString(value);
+  const text = value ? current.toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' }) : 'Choose a date';
+
+  let control: ReactNode;
+  if (Platform.OS === 'web') {
+    control = createElement('input', {
+      type: 'date',
+      value,
+      max: maxDate ? toLocalDateString(maxDate) : undefined,
+      disabled,
+      'aria-label': label,
+      onChange: (event: { target: { value: string } }) => onChange(event.target.value),
+      style: {
+        border: `1px solid ${error ? theme.error : theme.border}`,
+        borderRadius: 10,
+        padding: '12px 14px',
+        fontSize: 16,
+        minHeight: 48,
+        boxSizing: 'border-box',
+        backgroundColor: theme.surface,
+        color: theme.text,
+        colorScheme: theme.background === '#ffffff' ? 'light' : 'dark',
+        fontFamily: 'inherit',
+      },
+    });
+  } else if (Platform.OS === 'ios') {
+    control = (
+      <View style={styles.pickerRow}>
+        <DateTimePicker
+          accessibilityLabel={label}
+          value={current}
+          mode="date"
+          display="compact"
+          maximumDate={maxDate}
+          disabled={disabled}
+          onChange={(_, selected) => {
+            if (selected) onChange(toLocalDateString(selected));
+          }}
+        />
+      </View>
+    );
+  } else {
+    control = (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${label}: ${text}. Change date`}
+        disabled={disabled}
+        onPress={() =>
+          DateTimePickerAndroid.open({
+            value: current,
+            mode: 'date',
+            maximumDate: maxDate,
+            onChange: (event, selected) => {
+              if (event.type === 'set' && selected) onChange(toLocalDateString(selected));
+            },
+          })
+        }
+        style={[styles.input, { borderColor: error ? theme.error : theme.border, backgroundColor: theme.surface, opacity: disabled ? 0.6 : 1 }]}
+      >
+        <Text style={{ color: theme.text, fontSize: 16 }}>{text}</Text>
+      </Pressable>
+    );
+  }
+
+  return (
+    <View style={styles.field}>
+      <Text style={[styles.label, { color: theme.text }]}>{label}</Text>
+      {control}
+      {error ? <Text style={[styles.errorText, { color: theme.error }]}>{error}</Text> : null}
+    </View>
+  );
+}
+
 /** A thin bar showing 0 to 100 percent. The meaning is always also given in text next to it. */
 export function ProgressBar({ percent, met = false, label }: { percent: number; met?: boolean; label: string }) {
   const theme = useTheme();
@@ -149,6 +250,7 @@ export function ProgressBar({ percent, met = false, label }: { percent: number; 
 }
 
 const styles = StyleSheet.create({
+  pickerRow: { alignItems: 'flex-start' },
   track: { height: 8, borderRadius: 4, overflow: 'hidden' },
   button: { minHeight: 48, borderRadius: 10, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20 },
   buttonText: { fontSize: 16, fontWeight: '600' },
