@@ -1,15 +1,17 @@
-import { formatAge } from '@watchdog/shared';
+import { describeGoalSource, formatAge, formatGoalTarget } from '@watchdog/shared';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ErrorMessage, PrimaryButton, SecondaryButton } from '../../../../components/ui';
 import { useTheme } from '../../../../lib/theme';
 import { useDog } from '../../../../lib/useDogs';
+import { useGoals } from '../../../../lib/useGoals';
 
 export default function DogScreen() {
   const theme = useTheme();
   const params = useLocalSearchParams<{ id: string }>();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
   const { dog, loaded, error, reload } = useDog(id);
+  const goalList = useGoals(id);
 
   if (error) {
     return (
@@ -55,10 +57,43 @@ export default function DogScreen() {
         ))}
       </View>
 
-      <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>Goals</Text>
-        <Text style={{ color: theme.muted, fontSize: 15 }}>Setting goals and logging activity come next.</Text>
-      </View>
+      <Text style={[styles.sectionTitle, { color: theme.text }]}>Goals</Text>
+
+      {goalList.error ? (
+        <View style={styles.block}>
+          <ErrorMessage>{goalList.error}</ErrorMessage>
+          <SecondaryButton label="Try again" onPress={goalList.reload} />
+        </View>
+      ) : null}
+
+      {goalList.goals === null && !goalList.error ? <ActivityIndicator accessibilityLabel="Loading goals" /> : null}
+
+      {goalList.goals && goalList.goals.length === 0 ? (
+        <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <Text style={{ color: theme.muted, fontSize: 15 }}>
+            No goals yet. Add one, such as a daily walk, to start tracking how {dog.name} is doing.
+          </Text>
+        </View>
+      ) : null}
+
+      {goalList.goals?.map((goal) => (
+        <Pressable
+          key={goal.id}
+          accessibilityRole="button"
+          accessibilityLabel={`${goal.label}, ${formatGoalTarget(goal)}`}
+          onPress={() => router.push(`/dogs/${dog.id}/goals/${goal.id}`)}
+          style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border, opacity: goal.status === 'paused' ? 0.7 : 1 }]}
+        >
+          <View style={styles.goalHeader}>
+            <Text style={[styles.goalTitle, { color: theme.text }]}>{goal.label}</Text>
+            {goal.status === 'paused' ? <Text style={{ color: theme.muted, fontSize: 13 }}>Paused</Text> : null}
+          </View>
+          <Text style={{ color: theme.text, fontSize: 15 }}>{formatGoalTarget(goal)}</Text>
+          <Text style={{ color: theme.muted, fontSize: 13 }}>{describeGoalSource(goal)}</Text>
+        </Pressable>
+      ))}
+
+      <PrimaryButton label="Add a goal" onPress={() => router.push(`/dogs/${dog.id}/goals/new`)} />
 
       <SecondaryButton label="Edit details" onPress={() => router.push(`/dogs/${dog.id}/edit`)} />
     </ScrollView>
@@ -71,5 +106,8 @@ const styles = StyleSheet.create({
   title: { fontSize: 28, fontWeight: '700' },
   card: { borderWidth: 1, borderRadius: 14, padding: 16, gap: 10 },
   row: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
-  sectionTitle: { fontSize: 18, fontWeight: '600' },
+  sectionTitle: { fontSize: 20, fontWeight: '700', marginTop: 8 },
+  block: { gap: 12 },
+  goalHeader: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
+  goalTitle: { fontSize: 17, fontWeight: '600' },
 });

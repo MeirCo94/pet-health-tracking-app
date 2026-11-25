@@ -84,6 +84,54 @@ export function ErrorMessage({ children }: { children: ReactNode }) {
   );
 }
 
+/** A single choice from a few options, shown as a row of pills. Wraps onto more lines if needed. */
+export function ChoiceGroup<T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+  disabled = false,
+}: {
+  label?: string;
+  options: readonly { value: T; label: string }[];
+  value: T | null;
+  onChange: (value: T) => void;
+  disabled?: boolean;
+}) {
+  const theme = useTheme();
+  return (
+    <View style={styles.field}>
+      {label ? <Text style={[styles.label, { color: theme.text }]}>{label}</Text> : null}
+      <View accessibilityRole="radiogroup" style={styles.choices}>
+        {options.map((option) => {
+          const selected = option.value === value;
+          return (
+            <Pressable
+              key={option.value}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: selected, disabled }}
+              disabled={disabled}
+              onPress={() => onChange(option.value)}
+              style={[
+                styles.choice,
+                {
+                  backgroundColor: selected ? theme.primary : theme.surface,
+                  borderColor: selected ? theme.primary : theme.border,
+                  opacity: disabled ? 0.6 : 1,
+                },
+              ]}
+            >
+              <Text style={{ color: selected ? theme.primaryText : theme.text, fontSize: 15, fontWeight: selected ? '600' : '400' }}>
+                {option.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   button: { minHeight: 48, borderRadius: 10, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20 },
   buttonText: { fontSize: 16, fontWeight: '600' },
@@ -93,4 +141,6 @@ const styles = StyleSheet.create({
   input: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16 },
   hint: { fontSize: 13 },
   errorText: { fontSize: 14 },
+  choices: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  choice: { borderWidth: 1, borderRadius: 999, paddingVertical: 10, paddingHorizontal: 16, minHeight: 44, justifyContent: 'center' },
 });
