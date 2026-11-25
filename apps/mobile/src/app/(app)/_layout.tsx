@@ -18,6 +18,7 @@ export default function AppLayout() {
       <Stack.Screen name="dogs/[id]/edit" options={{ title: 'Edit dog' }} />
       <Stack.Screen name="dogs/[id]/goals/new" options={{ title: 'Add goal' }} />
       <Stack.Screen name="dogs/[id]/goals/[goalId]" options={{ title: 'Edit goal' }} />
+      <Stack.Screen name="dogs/[id]/log/[goalId]" options={{ title: 'Log activity' }} />
     </Stack>
   );
 }

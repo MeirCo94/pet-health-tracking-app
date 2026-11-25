@@ -201,7 +201,7 @@ export function formatNumber(value: number): string {
   return fraction ? `${withCommas}.${fraction}` : withCommas;
 }
 
-function singular(unit: string): string {
+export function singular(unit: string): string {
   return unit.length > 1 && unit.endsWith('s') && !unit.endsWith('ss') ? unit.slice(0, -1) : unit;
 }
 

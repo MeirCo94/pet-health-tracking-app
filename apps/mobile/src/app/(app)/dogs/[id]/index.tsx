@@ -1,9 +1,10 @@
-import { describeGoalSource, formatAge, formatGoalTarget } from '@watchdog/shared';
+import { describeGoalSource, formatAge, formatGoalTarget, summarizeGoal } from '@watchdog/shared';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { ErrorMessage, PrimaryButton, SecondaryButton } from '../../../../components/ui';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ErrorMessage, PrimaryButton, ProgressBar, SecondaryButton } from '../../../../components/ui';
 import { useTheme } from '../../../../lib/theme';
 import { useDog } from '../../../../lib/useDogs';
+import { useWeekEntries } from '../../../../lib/useEntries';
 import { useGoals } from '../../../../lib/useGoals';
 
 export default function DogScreen() {
@@ -12,6 +13,7 @@ export default function DogScreen() {
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
   const { dog, loaded, error, reload } = useDog(id);
   const goalList = useGoals(id);
+  const weekEntries = useWeekEntries(id);
 
   if (error) {
     return (
@@ -76,22 +78,51 @@ export default function DogScreen() {
         </View>
       ) : null}
 
-      {goalList.goals?.map((goal) => (
-        <Pressable
-          key={goal.id}
-          accessibilityRole="button"
-          accessibilityLabel={`${goal.label}, ${formatGoalTarget(goal)}`}
-          onPress={() => router.push(`/dogs/${dog.id}/goals/${goal.id}`)}
-          style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border, opacity: goal.status === 'paused' ? 0.7 : 1 }]}
-        >
-          <View style={styles.goalHeader}>
-            <Text style={[styles.goalTitle, { color: theme.text }]}>{goal.label}</Text>
-            {goal.status === 'paused' ? <Text style={{ color: theme.muted, fontSize: 13 }}>Paused</Text> : null}
+      {weekEntries.error ? (
+        <View style={styles.block}>
+          <ErrorMessage>{weekEntries.error}</ErrorMessage>
+          <SecondaryButton label="Try again" onPress={weekEntries.reload} />
+        </View>
+      ) : null}
+
+      {goalList.goals?.map((goal) => {
+        const active = goal.status === 'active';
+        const progress = active && weekEntries.entries ? summarizeGoal(goal, weekEntries.entries, new Date()) : null;
+        return (
+          <View
+            key={goal.id}
+            style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border, opacity: active ? 1 : 0.7 }]}
+          >
+            <View style={styles.goalHeader}>
+              <Text style={[styles.goalTitle, { color: theme.text }]}>{goal.label}</Text>
+              {!active ? <Text style={{ color: theme.muted, fontSize: 13 }}>Paused</Text> : null}
+              {progress?.met ? <Text style={{ color: theme.info, fontSize: 13, fontWeight: '600' }}>Goal met</Text> : null}
+            </View>
+            {progress ? (
+              <>
+                <Text style={{ color: theme.text, fontSize: 15 }}>{progress.text}</Text>
+                <ProgressBar percent={progress.percent} met={progress.met} label={`${goal.label}: ${progress.text}`} />
+              </>
+            ) : (
+              <Text style={{ color: theme.text, fontSize: 15 }}>{formatGoalTarget(goal)}</Text>
+            )}
+            <Text style={{ color: theme.muted, fontSize: 13 }}>
+              {progress ? `${formatGoalTarget(goal)} · ` : ''}
+              {describeGoalSource(goal)}
+            </Text>
+            <View style={styles.actions}>
+              {active ? (
+                <View style={styles.action}>
+                  <PrimaryButton label="Log" onPress={() => router.push(`/dogs/${dog.id}/log/${goal.id}`)} />
+                </View>
+              ) : null}
+              <View style={styles.action}>
+                <SecondaryButton label="Edit" onPress={() => router.push(`/dogs/${dog.id}/goals/${goal.id}`)} />
+              </View>
+            </View>
           </View>
-          <Text style={{ color: theme.text, fontSize: 15 }}>{formatGoalTarget(goal)}</Text>
-          <Text style={{ color: theme.muted, fontSize: 13 }}>{describeGoalSource(goal)}</Text>
-        </Pressable>
-      ))}
+        );
+      })}
 
       <PrimaryButton label="Add a goal" onPress={() => router.push(`/dogs/${dog.id}/goals/new`)} />
 
@@ -109,5 +140,7 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 20, fontWeight: '700', marginTop: 8 },
   block: { gap: 12 },
   goalHeader: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
-  goalTitle: { fontSize: 17, fontWeight: '600' },
+  goalTitle: { fontSize: 17, fontWeight: '600', flexShrink: 1 },
+  actions: { flexDirection: 'row', gap: 12 },
+  action: { flex: 1 },
 });

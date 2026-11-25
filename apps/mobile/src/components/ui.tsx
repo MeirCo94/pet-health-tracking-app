@@ -132,7 +132,24 @@ export function ChoiceGroup<T extends string>({
   );
 }
 
+/** A thin bar showing 0 to 100 percent. The meaning is always also given in text next to it. */
+export function ProgressBar({ percent, met = false, label }: { percent: number; met?: boolean; label: string }) {
+  const theme = useTheme();
+  const clamped = Math.max(0, Math.min(100, percent));
+  return (
+    <View
+      accessibilityRole="progressbar"
+      accessibilityLabel={label}
+      accessibilityValue={{ min: 0, max: 100, now: clamped }}
+      style={[styles.track, { backgroundColor: theme.border }]}
+    >
+      <View style={{ width: `${clamped}%`, height: '100%', backgroundColor: met ? theme.info : theme.primary }} />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  track: { height: 8, borderRadius: 4, overflow: 'hidden' },
   button: { minHeight: 48, borderRadius: 10, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20 },
   buttonText: { fontSize: 16, fontWeight: '600' },
   secondary: { borderWidth: 1 },
