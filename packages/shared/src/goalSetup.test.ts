@@ -72,16 +72,33 @@ describe('parseTarget', () => {
     [' 1.5 ', 1.5],
     ['8,000', 8000],
     ['0', 0],
+    ['1,5', 1.5],
+    ['0,25', 0.25],
+    ['12,34', 12.34],
+    ['1,500', 1500],
+    ['1,234,567', 1234567],
+    ['1,500.5', 1500.5],
   ])('reads %s', (text, expected) => {
     expect(parseTarget(text)).toBe(expected);
   });
 
-  it.each(['', 'abc', '-5', '1e3', '1.', '.5', '5 minutes', '1.2.3'])('rejects %s', (text) => {
+  it.each(['', 'abc', '-5', '1e3', '1.', '.5', '5 minutes', '1.2.3', '0.004', '1,2345', '1,5,0', '12,34,5', ',5', '1,000,00'])('rejects %s', (text) => {
     expect(parseTarget(text)).toBeNull();
   });
 });
 
 describe('validateGoal', () => {
+  it('saves a decimal comma as a decimal, not as a larger whole number', () => {
+    expect(validateGoal({ ...valid, target: '1,5' })).toEqual({});
+    expect(parseGoalInput({ ...valid, target: '1,5' }).targetValue).toBe(1.5);
+  });
+
+  it('rejects targets with more decimal places than can be shown', () => {
+    expect(validateGoal({ ...valid, target: '0.004' }).target).toMatch(/decimal places/);
+    expect(validateGoal({ ...valid, target: '1,2345' }).target).toMatch(/decimal places/);
+    expect(validateGoal({ ...valid, target: 'abc' }).target).toMatch(/number/);
+  });
+
   it('accepts a template goal', () => {
     expect(validateGoal(valid)).toEqual({});
   });

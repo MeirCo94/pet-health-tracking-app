@@ -43,11 +43,14 @@ export function GoalForm({
   initial,
   submitLabel,
   onSubmit,
+  disabled = false,
 }: {
   /** Pass a saved goal to edit it. Leave out to start a new goal from a sample activity. */
   initial?: DogGoal;
   submitLabel: string;
   onSubmit: (values: GoalValues) => Promise<void>;
+  /** Lock the whole form while something else on the screen, such as a delete, is in progress. */
+  disabled?: boolean;
 }) {
   const theme = useTheme();
   const editing = initial !== undefined;
@@ -55,7 +58,8 @@ export function GoalForm({
   const [form, setForm] = useState<GoalFormInput>(initial ? formInputFromGoal(initial) : formInputFromTemplate(null));
   const [errors, setErrors] = useState<GoalFormErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const busy = saving || disabled;
 
   function set<K extends keyof GoalFormInput>(key: K, value: GoalFormInput[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -76,12 +80,12 @@ export function GoalForm({
     setSubmitError(null);
     if (found.label || found.unit || found.target || found.prescribedBy) return;
 
-    setBusy(true);
+    setSaving(true);
     try {
       await onSubmit(parseGoalInput(form));
     } catch (e) {
       setSubmitError(e instanceof Error ? e.message : 'Could not save. Try again.');
-      setBusy(false);
+      setSaving(false);
     }
     // On success the screen navigates away, so busy is left as is.
   }

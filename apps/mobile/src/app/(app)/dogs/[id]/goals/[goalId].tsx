@@ -13,7 +13,9 @@ export default function EditGoalScreen() {
   const goalId = Array.isArray(params.goalId) ? params.goalId[0] : params.goalId;
   const { goal, loaded, error, reload } = useGoal(goalId);
   const [confirming, setConfirming] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const pending = saving || deleting;
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   if (error) {
@@ -39,7 +41,7 @@ export default function EditGoalScreen() {
   }
 
   async function confirmDelete() {
-    if (!goal || deleting) return;
+    if (!goal || pending) return;
     setDeleting(true);
     setDeleteError(null);
     try {
@@ -56,8 +58,16 @@ export default function EditGoalScreen() {
       <GoalForm
         initial={goal}
         submitLabel="Save changes"
+        disabled={deleting}
         onSubmit={async (values) => {
-          await updateGoal(goal.id, values);
+          if (deleting) return;
+          setSaving(true);
+          try {
+            await updateGoal(goal.id, values);
+          } catch (e) {
+            setSaving(false);
+            throw e;
+          }
           router.back();
         }}
       />
@@ -69,11 +79,11 @@ export default function EditGoalScreen() {
               Delete “{goal.label}”? Anything already logged for it is kept, but no longer linked to this goal. This cannot be undone.
             </Text>
             {deleteError ? <ErrorMessage>{deleteError}</ErrorMessage> : null}
-            <SecondaryButton label={deleting ? 'Deleting…' : 'Yes, delete goal'} onPress={confirmDelete} disabled={deleting} danger />
-            <SecondaryButton label="Cancel" onPress={() => setConfirming(false)} disabled={deleting} />
+            <SecondaryButton label={deleting ? 'Deleting…' : 'Yes, delete goal'} onPress={confirmDelete} disabled={pending} danger />
+            <SecondaryButton label="Cancel" onPress={() => setConfirming(false)} disabled={pending} />
           </View>
         ) : (
-          <SecondaryButton label="Delete goal" onPress={() => setConfirming(true)} danger />
+          <SecondaryButton label="Delete goal" onPress={() => setConfirming(true)} disabled={pending} danger />
         )}
       </View>
     </ScrollView>

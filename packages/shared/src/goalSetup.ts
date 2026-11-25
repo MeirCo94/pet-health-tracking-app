@@ -115,12 +115,36 @@ export function formInputFromGoal(goal: DogGoal): GoalFormInput {
   };
 }
 
-/** Reads a typed number such as "8,000" or "1.5". Returns null if it is not a plain number. */
+/** The most decimal places a target may have. Matches how targets are displayed. */
+export const MAX_TARGET_DECIMALS = 2;
+
+/**
+ * Reads a typed number such as "60", "8,000", "1.5" or "1,5".
+ *
+ * A comma followed by exactly three digits is a thousands separator ("1,500" is 1500).
+ * Any other single comma is a decimal comma ("1,5" is 1.5), as typed on keyboards that
+ * use one. Returns null for anything else, including more than two decimal places.
+ */
 export function parseTarget(text: string): number | null {
-  const cleaned = text.trim().replace(/,/g, '');
-  if (!/^\d+(\.\d+)?$/.test(cleaned)) return null;
-  const value = Number(cleaned);
+  const trimmed = text.trim();
+  let normalized: string;
+  if (/^\d{1,3}(,\d{3})+(\.\d+)?$/.test(trimmed)) {
+    normalized = trimmed.replace(/,/g, '');
+  } else if (/^\d+,\d+$/.test(trimmed)) {
+    normalized = trimmed.replace(',', '.');
+  } else {
+    normalized = trimmed;
+  }
+  if (!/^\d+(\.\d+)?$/.test(normalized)) return null;
+  const decimals = normalized.split('.')[1]?.length ?? 0;
+  if (decimals > MAX_TARGET_DECIMALS) return null;
+  const value = Number(normalized);
   return Number.isFinite(value) ? value : null;
+}
+
+/** True for text that is a number but has more decimal places than a target allows. */
+function hasTooManyDecimals(text: string): boolean {
+  return /^\d+[.,]\d{3,}$/.test(text.trim()) && !/^\d{1,3}(,\d{3})+$/.test(text.trim());
 }
 
 export function validateGoal(input: GoalFormInput): GoalFormErrors {
@@ -136,7 +160,11 @@ export function validateGoal(input: GoalFormInput): GoalFormErrors {
 
   const target = parseTarget(input.target);
   if (input.target.trim().length === 0) errors.target = 'Enter a target.';
-  else if (target === null) errors.target = 'Enter a number, for example 60.';
+  else if (target === null) {
+    errors.target = hasTooManyDecimals(input.target)
+      ? `Use at most ${MAX_TARGET_DECIMALS} decimal places.`
+      : 'Enter a number, for example 60.';
+  }
   else if (target <= 0) errors.target = 'The target must be more than zero.';
   else if (target > MAX_GOAL_TARGET) errors.target = 'That number is too large.';
 
