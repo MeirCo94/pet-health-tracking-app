@@ -55,12 +55,26 @@ export function nowFormValues(now: Date): { date: string; time: string } {
   return { date: toLocalDateString(now), time: formatTime(now) };
 }
 
-/** Combines YYYY-MM-DD and HH:mm in local time. Returns null if either is not valid. */
+/**
+ * Combines YYYY-MM-DD and HH:mm in local time. Returns null if either is not valid, or if the time
+ * does not exist on that date: when clocks move forward, 02:30 is skipped, and the Date constructor
+ * would quietly turn it into 03:30. A time that happens twice when clocks move back is accepted
+ * and means its first occurrence.
+ */
 export function combineDateAndTime(date: string, time: string): Date | null {
   const d = parseDate(date.trim());
   const t = TIME_SHAPE.exec(time.trim());
   if (!d || !t) return null;
-  return new Date(d.year, d.month - 1, d.day, Number(t[1]), Number(t[2]), 0, 0);
+  const hours = Number(t[1]);
+  const minutes = Number(t[2]);
+  const result = new Date(d.year, d.month - 1, d.day, hours, minutes, 0, 0);
+  const unchanged =
+    result.getFullYear() === d.year &&
+    result.getMonth() === d.month - 1 &&
+    result.getDate() === d.day &&
+    result.getHours() === hours &&
+    result.getMinutes() === minutes;
+  return unchanged ? result : null;
 }
 
 /**
@@ -160,9 +174,8 @@ export function validateEntry(input: EntryFormInput, now: Date = new Date()): En
   if (!timeOk) errors.time = 'Use 24-hour time, like 07:30 or 14:30.';
   if (dateOk && timeOk) {
     const when = combineDateAndTime(input.date, input.time);
-    if (when && when.getTime() > now.getTime() + FUTURE_TOLERANCE_MS) {
-      errors.time = 'That time has not happened yet.';
-    }
+    if (!when) errors.time = 'That time does not exist on that date because the clocks changed. Choose another time.';
+    else if (when.getTime() > now.getTime() + FUTURE_TOLERANCE_MS) errors.time = 'That time has not happened yet.';
   }
 
   if (input.note.length > MAX_ENTRY_NOTE_LENGTH) errors.note = `Use ${MAX_ENTRY_NOTE_LENGTH} characters or fewer.`;
