@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   entriesInPeriod,
-  loggedAtFor,
+  combineDateAndTime,
+  formatTime,
+  nowFormValues,
   msUntilNextDay,
   parseEntryInput,
   periodRange,
@@ -56,18 +58,36 @@ describe('msUntilNextDay', () => {
   });
 });
 
-describe('loggedAtFor', () => {
-  it('uses the current time for today', () => {
-    expect(loggedAtFor('today', now)).toEqual(now);
-    expect(loggedAtFor('today', now)).not.toBe(now);
+describe('formatTime and nowFormValues', () => {
+  it('pads to 24-hour HH:mm', () => {
+    expect(formatTime(new Date(2026, 10, 25, 7, 5))).toBe('07:05');
+    expect(formatTime(new Date(2026, 10, 25, 0, 0))).toBe('00:00');
+    expect(formatTime(new Date(2026, 10, 25, 23, 59))).toBe('23:59');
   });
 
-  it('uses noon yesterday for yesterday', () => {
-    expect(loggedAtFor('yesterday', now)).toEqual(new Date(2026, 10, 24, 12));
+  it('starts the form at the current local date and time', () => {
+    expect(nowFormValues(now)).toEqual({ date: '2026-11-25', time: '10:30' });
+  });
+});
+
+describe('combineDateAndTime', () => {
+  it('builds a local date and time', () => {
+    expect(combineDateAndTime('2026-11-24', '14:30')).toEqual(new Date(2026, 10, 24, 14, 30));
+    expect(combineDateAndTime(' 2026-11-24 ', ' 07:05 ')).toEqual(new Date(2026, 10, 24, 7, 5));
   });
 
-  it('works across a month boundary', () => {
-    expect(loggedAtFor('yesterday', new Date(2026, 11, 1, 7))).toEqual(new Date(2026, 10, 30, 12));
+  it.each([
+    ['2026-02-30', '10:00'],
+    ['2026-13-01', '10:00'],
+    ['25/11/2026', '10:00'],
+    ['', '10:00'],
+    ['2026-11-24', '24:00'],
+    ['2026-11-24', '9:30'],
+    ['2026-11-24', '10:60'],
+    ['2026-11-24', '10:30 PM'],
+    ['2026-11-24', ''],
+  ])('rejects %s %s', (date, time) => {
+    expect(combineDateAndTime(date, time)).toBeNull();
   });
 });
 
@@ -139,16 +159,16 @@ describe('entriesInPeriod', () => {
   });
 });
 
-const valid: EntryFormInput = { value: '30', day: 'today', note: '' };
+const valid: EntryFormInput = { value: '30', date: '2026-11-25', time: '09:00', note: '' };
 
 describe('validateEntry', () => {
-  it('accepts a plain amount', () => {
-    expect(validateEntry(valid)).toEqual({});
+  it('accepts a plain amount at a past time', () => {
+    expect(validateEntry(valid, now)).toEqual({});
   });
 
   it('accepts a decimal comma and thousands', () => {
-    expect(validateEntry({ ...valid, value: '1,5' })).toEqual({});
-    expect(validateEntry({ ...valid, value: '8,000' })).toEqual({});
+    expect(validateEntry({ ...valid, value: '1,5' }, now)).toEqual({});
+    expect(validateEntry({ ...valid, value: '8,000' }, now)).toEqual({});
   });
 
   it.each([
@@ -158,26 +178,53 @@ describe('validateEntry', () => {
     ['-3', /number/],
     ['0.004', /number/],
     ['99999999999', /too large/],
-  ])('rejects %j', (value, message) => {
-    expect(validateEntry({ ...valid, value }).value).toMatch(message);
+  ])('rejects amount %j', (value, message) => {
+    expect(validateEntry({ ...valid, value }, now).value).toMatch(message);
+  });
+
+  it('requires a real date', () => {
+    expect(validateEntry({ ...valid, date: '' }, now).date).toMatch(/date/i);
+    expect(validateEntry({ ...valid, date: '2026-02-30' }, now).date).toMatch(/date/i);
+  });
+
+  it('requires 24-hour HH:mm', () => {
+    expect(validateEntry({ ...valid, time: '9:30' }, now).time).toMatch(/24-hour/);
+    expect(validateEntry({ ...valid, time: '25:00' }, now).time).toMatch(/24-hour/);
+    expect(validateEntry({ ...valid, time: '' }, now).time).toMatch(/24-hour/);
+  });
+
+  it('allows now and a minute of clock drift but not the future', () => {
+    expect(validateEntry({ ...valid, time: '10:30' }, now)).toEqual({});
+    expect(validateEntry({ ...valid, time: '10:31' }, now)).toEqual({});
+    expect(validateEntry({ ...valid, time: '10:32' }, now).time).toMatch(/not happened/);
+    expect(validateEntry({ ...valid, date: '2026-11-26', time: '00:00' }, now).time).toMatch(/not happened/);
+  });
+
+  it('allows an earlier day at any time', () => {
+    expect(validateEntry({ ...valid, date: '2026-11-24', time: '23:59' }, now)).toEqual({});
+  });
+
+  it('reports date and time problems together with a bad amount', () => {
+    const errors = validateEntry({ value: '', date: '', time: '', note: '' }, now);
+    expect(Object.keys(errors).sort()).toEqual(['date', 'time', 'value']);
   });
 
   it('limits the note length', () => {
-    expect(validateEntry({ ...valid, note: 'x'.repeat(501) }).note).toMatch(/500/);
-    expect(validateEntry({ ...valid, note: 'x'.repeat(500) })).toEqual({});
+    expect(validateEntry({ ...valid, note: 'x'.repeat(501) }, now).note).toMatch(/500/);
+    expect(validateEntry({ ...valid, note: 'x'.repeat(500) }, now)).toEqual({});
   });
 });
 
 describe('parseEntryInput', () => {
   it('cleans the values for saving', () => {
-    expect(parseEntryInput({ value: ' 1,5 ', day: 'yesterday', note: '  at the park ' }, now)).toEqual({
+    expect(parseEntryInput({ value: ' 1,5 ', date: '2026-11-24', time: '14:30', note: '  at the park ' })).toEqual({
       value: 1.5,
-      loggedAt: new Date(2026, 10, 24, 12),
+      loggedAt: new Date(2026, 10, 24, 14, 30),
       note: 'at the park',
     });
   });
 
   it('turns an empty note into null', () => {
-    expect(parseEntryInput(valid, now).note).toBeNull();
+    expect(parseEntryInput(valid).note).toBeNull();
   });
 });

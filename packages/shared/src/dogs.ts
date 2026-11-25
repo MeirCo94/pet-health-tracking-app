@@ -45,7 +45,7 @@ export function toLocalDateString(date: Date): string {
 }
 
 /** Splits a YYYY-MM-DD string into numbers, or null if it is not a real calendar date. */
-function parseDate(value: string): { year: number; month: number; day: number } | null {
+export function parseDate(value: string): { year: number; month: number; day: number } | null {
   const match = DATE_SHAPE.exec(value);
   if (!match) return null;
   const year = Number(match[1]);
