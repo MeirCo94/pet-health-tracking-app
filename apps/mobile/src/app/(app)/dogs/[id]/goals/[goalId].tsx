@@ -5,6 +5,7 @@ import { ErrorMessage, SecondaryButton } from '../../../../../components/ui';
 import { GoalForm } from '../../../../../components/GoalForm';
 import { deleteGoal, updateGoal } from '../../../../../lib/goals';
 import { useTheme } from '../../../../../lib/theme';
+import { useGoalEntryCount } from '../../../../../lib/useEntries';
 import { useGoal } from '../../../../../lib/useGoals';
 
 export default function EditGoalScreen() {
@@ -12,22 +13,30 @@ export default function EditGoalScreen() {
   const params = useLocalSearchParams<{ goalId: string }>();
   const goalId = Array.isArray(params.goalId) ? params.goalId[0] : params.goalId;
   const { goal, loaded, error, reload } = useGoal(goalId);
+  const entryCount = useGoalEntryCount(goalId);
   const [confirming, setConfirming] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const pending = saving || deleting;
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  if (error) {
+  const loadError = error ?? entryCount.error;
+  if (loadError) {
     return (
       <View style={styles.container}>
-        <ErrorMessage>{error}</ErrorMessage>
-        <SecondaryButton label="Try again" onPress={reload} />
+        <ErrorMessage>{loadError}</ErrorMessage>
+        <SecondaryButton
+          label="Try again"
+          onPress={() => {
+            reload();
+            entryCount.reload();
+          }}
+        />
       </View>
     );
   }
 
-  if (!loaded) {
+  if (!loaded || entryCount.count === null) {
     return <ActivityIndicator accessibilityLabel="Loading goal" style={styles.loading} />;
   }
 
@@ -59,6 +68,7 @@ export default function EditGoalScreen() {
         initial={goal}
         submitLabel="Save changes"
         disabled={deleting}
+        unitLocked={entryCount.count > 0}
         onSubmit={async (values) => {
           if (deleting) return;
           setSaving(true);

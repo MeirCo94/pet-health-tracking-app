@@ -87,7 +87,7 @@ export default function LogScreen() {
     );
   }
 
-  const now = new Date();
+  const now = weekEntries.now;
   const progress = summarizeGoal(goal, weekEntries.entries, now);
   const logged = entriesInPeriod(goal, weekEntries.entries, now);
   const unit = goal.unit ?? '';

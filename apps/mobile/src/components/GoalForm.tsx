@@ -44,6 +44,7 @@ export function GoalForm({
   submitLabel,
   onSubmit,
   disabled = false,
+  unitLocked = false,
 }: {
   /** Pass a saved goal to edit it. Leave out to start a new goal from a sample activity. */
   initial?: DogGoal;
@@ -51,6 +52,8 @@ export function GoalForm({
   onSubmit: (values: GoalValues) => Promise<void>;
   /** Lock the whole form while something else on the screen, such as a delete, is in progress. */
   disabled?: boolean;
+  /** The unit cannot change because activity is already logged in it. */
+  unitLocked?: boolean;
 }) {
   const theme = useTheme();
   const editing = initial !== undefined;
@@ -132,7 +135,8 @@ export function GoalForm({
         autoComplete="off"
         placeholder="minutes"
         error={errors.unit}
-        editable={!busy}
+        hint={unitLocked ? 'The unit cannot change once activity is logged. Add a new goal to use a different unit.' : undefined}
+        editable={!busy && !unitLocked}
       />
 
       <ChoiceGroup label="How often" options={PERIOD_OPTIONS} value={form.period} onChange={(v) => set('period', v)} disabled={busy} />

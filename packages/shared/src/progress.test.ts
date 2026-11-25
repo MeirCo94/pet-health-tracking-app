@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   entriesInPeriod,
   loggedAtFor,
+  msUntilNextDay,
   parseEntryInput,
   periodRange,
   summarizeGoal,
@@ -41,6 +42,17 @@ describe('periodRange', () => {
   it('crosses month and year boundaries', () => {
     expect(periodRange('daily', new Date(2026, 11, 31, 9)).end).toEqual(new Date(2027, 0, 1));
     expect(periodRange('weekly', new Date(2027, 0, 1, 9)).start).toEqual(new Date(2026, 11, 28));
+  });
+});
+
+describe('msUntilNextDay', () => {
+  it('counts down to the next local midnight', () => {
+    expect(msUntilNextDay(new Date(2026, 10, 25, 23, 0))).toBe(60 * 60 * 1000);
+    expect(msUntilNextDay(new Date(2026, 10, 25, 0, 0))).toBe(24 * 60 * 60 * 1000);
+  });
+
+  it('is one second just before midnight and crosses the year end', () => {
+    expect(msUntilNextDay(new Date(2026, 11, 31, 23, 59, 59))).toBe(1000);
   });
 });
 

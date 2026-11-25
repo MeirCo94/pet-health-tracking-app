@@ -63,3 +63,10 @@ export async function deleteEntry(id: string): Promise<void> {
   const { error } = await supabase.from('entries').delete().eq('id', id);
   if (error) throw new Error(error.message);
 }
+
+/** How many entries are logged against a goal. */
+export async function countGoalEntries(goalId: string): Promise<number> {
+  const { count, error } = await supabase.from('entries').select('id', { count: 'exact', head: true }).eq('goal_id', goalId);
+  if (error) throw new Error(error.message);
+  return count ?? 0;
+}

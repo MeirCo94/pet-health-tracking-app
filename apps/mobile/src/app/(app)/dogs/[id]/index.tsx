@@ -87,7 +87,7 @@ export default function DogScreen() {
 
       {goalList.goals?.map((goal) => {
         const active = goal.status === 'active';
-        const progress = active && weekEntries.entries ? summarizeGoal(goal, weekEntries.entries, new Date()) : null;
+        const progress = active && weekEntries.entries ? summarizeGoal(goal, weekEntries.entries, weekEntries.now) : null;
         return (
           <View
             key={goal.id}

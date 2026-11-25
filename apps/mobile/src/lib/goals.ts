@@ -1,4 +1,5 @@
 import type { DogGoal, GoalPeriod, GoalSource, GoalStatus, GoalValues } from '@watchdog/shared';
+import { countGoalEntries } from './entries';
 import { supabase } from './supabase';
 
 interface GoalRow {
@@ -83,7 +84,15 @@ export async function createGoal(dogId: string, values: GoalValues): Promise<Dog
   return toGoal(data as GoalRow);
 }
 
+/**
+ * Saves changes to a goal. The unit cannot change once activity is logged, because saved amounts
+ * are not converted: 30 minutes would turn into 30 hours.
+ */
 export async function updateGoal(id: string, values: GoalValues): Promise<DogGoal> {
+  const current = await getGoal(id);
+  if (current && (current.unit ?? null) !== (values.unit ?? null) && (await countGoalEntries(id)) > 0) {
+    throw new Error('The unit cannot change once activity is logged. Add a new goal with the unit you want instead.');
+  }
   const { data, error } = await supabase.from('goals').update(toRow(values)).eq('id', id).select(COLUMNS).single();
   if (error) throw new Error(error.message);
   return toGoal(data as GoalRow);

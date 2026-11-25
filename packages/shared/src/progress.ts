@@ -49,6 +49,11 @@ export function periodRange(period: GoalPeriod, now: Date): { start: Date; end: 
   return { start: new Date(y, m, d - sinceMonday), end: new Date(y, m, d - sinceMonday + 7) };
 }
 
+/** Milliseconds from `now` until the next local midnight, when daily and weekly totals may roll over. */
+export function msUntilNextDay(now: Date): number {
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime() - now.getTime();
+}
+
 /** The earliest moment any goal's current period can begin: the start of this week. */
 export function earliestPeriodStart(now: Date): Date {
   return periodRange('weekly', now).start;
