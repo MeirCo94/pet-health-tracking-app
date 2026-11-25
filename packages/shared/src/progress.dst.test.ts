@@ -3,16 +3,20 @@ import { combineDateAndTime, parseEntryInput, validateEntry } from './progress';
 
 // Clocks change on these dates in New York: 8 March 2026 (02:00 jumps to 03:00) and 1 November 2026 (02:00 returns to 01:00).
 // The time zone is set for this file only and restored afterwards.
+// This package is shared with the mobile app and has no Node type definitions, so the test reads the
+// environment through a narrow local type instead of importing Node's.
+const env = (globalThis as unknown as { process: { env: Record<string, string | undefined> } }).process.env;
+
 let originalTz: string | undefined;
 
 beforeAll(() => {
-  originalTz = process.env.TZ;
-  process.env.TZ = 'America/New_York';
+  originalTz = env.TZ;
+  env.TZ = 'America/New_York';
 });
 
 afterAll(() => {
-  if (originalTz === undefined) delete process.env.TZ;
-  else process.env.TZ = originalTz;
+  if (originalTz === undefined) delete env.TZ;
+  else env.TZ = originalTz;
 });
 
 const now = () => new Date(2026, 10, 25, 10, 30);
