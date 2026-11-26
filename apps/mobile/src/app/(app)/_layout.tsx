@@ -13,6 +13,7 @@ export default function AppLayout() {
       }}
     >
       <Stack.Screen name="index" options={{ headerShown: false }} />
+      <Stack.Screen name="settings" options={{ title: 'Settings' }} />
       <Stack.Screen name="dogs/new" options={{ title: 'Add dog' }} />
       <Stack.Screen name="dogs/[id]/index" options={{ title: '' }} />
       <Stack.Screen name="dogs/[id]/edit" options={{ title: 'Edit dog' }} />
