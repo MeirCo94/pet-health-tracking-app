@@ -9,6 +9,7 @@ Project reference: `mzawvhigdxwcqpadjeml`. The app reads its URL and publishable
 | File | What it does |
 |---|---|
 | `20261117170000_core_tables.sql` | `dogs`, `goals`, `entries` with RLS: an owner only sees and changes their own data. Anonymous visitors get no access. |
+| `20261126160000_delete_my_account.sql` | `delete_my_account()`: a signed-in user deletes their own account, which cascades to their dogs, goals and entries. Takes no argument, refuses anonymous callers. Needed for Settings > Delete account. |
 
 ## Applying a migration
 
@@ -16,7 +17,7 @@ The migrations are not applied to the hosted project automatically.
 
 1. Open the project in the Supabase dashboard, then **SQL Editor** > **New query**.
 2. Paste the whole contents of the migration file and click **Run**.
-3. Open **Table Editor**. `dogs`, `goals` and `entries` should appear, each marked as having RLS enabled.
+3. For the core tables migration, open **Table Editor**. `dogs`, `goals` and `entries` should appear, each marked as having RLS enabled. For the delete account migration, open **Database** > **Functions**: `delete_my_account` should be listed.
 
 Apply migrations in filename order. Each file runs once. Do not edit a migration that has been applied; add a new one instead.
 

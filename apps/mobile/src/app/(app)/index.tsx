@@ -82,6 +82,7 @@ export default function HomeScreen() {
         <View style={[styles.account, { borderTopColor: theme.border }]}>
           <Text style={{ color: theme.muted, fontSize: 14 }}>Signed in as {session?.user.email ?? 'unknown'}</Text>
           {signOutError ? <ErrorMessage>{signOutError}</ErrorMessage> : null}
+          <SecondaryButton label="Settings" onPress={() => router.push('/settings')} />
           <SecondaryButton label={signingOut ? 'Signing out…' : 'Sign out'} onPress={signOut} disabled={signingOut} />
         </View>
       </ScrollView>
