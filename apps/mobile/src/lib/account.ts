@@ -32,10 +32,24 @@ export async function loadAccountExport(email: string | null): Promise<AccountEx
   return buildExport({ exportedAt: new Date(), email, dogs, goals, entries });
 }
 
-/** Deletes the signed-in owner's account and all their data. This cannot be undone. */
-export async function deleteAccount(): Promise<void> {
+/**
+ * Deletes the signed-in owner's account and all their data. This cannot be undone.
+ * Throws only if the deletion itself failed. Once it has succeeded the account is gone, so a problem
+ * clearing the saved session on this device is reported in the result instead, to be retried with
+ * finishSignOut.
+ */
+export async function deleteAccount(): Promise<{ signedOut: boolean }> {
   const { error } = await supabase.rpc('delete_my_account');
   if (error) throw new Error(error.message);
-  // The account is gone, so clear the saved session on this device without asking the server.
-  await supabase.auth.signOut({ scope: 'local' });
+  return { signedOut: await finishSignOut() };
+}
+
+/** Clears the saved session on this device without asking the server (the account may already be gone). */
+export async function finishSignOut(): Promise<boolean> {
+  try {
+    const { error } = await supabase.auth.signOut({ scope: 'local' });
+    return !error;
+  } catch {
+    return false;
+  }
 }

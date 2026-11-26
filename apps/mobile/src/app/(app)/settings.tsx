@@ -2,7 +2,7 @@ import { DELETE_CONFIRMATION_WORD, exportFileName, isDeleteConfirmed, serializeE
 import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ErrorMessage, PrimaryButton, SecondaryButton, TextField } from '../../components/ui';
-import { deleteAccount, loadAccountExport } from '../../lib/account';
+import { deleteAccount, finishSignOut, loadAccountExport } from '../../lib/account';
 import { useSession } from '../../lib/auth';
 import { saveExport } from '../../lib/exportFile';
 import { useTheme } from '../../lib/theme';
@@ -20,6 +20,9 @@ export default function SettingsScreen() {
   const [typed, setTyped] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  // Set when the account was deleted but this device could not clear the saved session.
+  const [deletedNeedsSignOut, setDeletedNeedsSignOut] = useState(false);
+  const [signOutError, setSignOutError] = useState<string | null>(null);
   const pending = exporting || deleting;
 
   async function exportData() {
@@ -50,11 +53,37 @@ export default function SettingsScreen() {
     setDeleteError(null);
     try {
       // On success the session clears and the router moves to the sign-in screen.
-      await deleteAccount();
+      const { signedOut } = await deleteAccount();
+      if (!signedOut) {
+        setDeletedNeedsSignOut(true);
+        setDeleting(false);
+      }
     } catch (e) {
       setDeleteError(e instanceof Error ? e.message : 'Could not delete your account. Try again.');
       setDeleting(false);
     }
+  }
+
+  async function retrySignOut() {
+    setSignOutError(null);
+    if (!(await finishSignOut())) {
+      setSignOutError('Could not finish signing out. Close and reopen the app, then sign in again if asked.');
+    }
+  }
+
+  if (deletedNeedsSignOut) {
+    return (
+      <ScrollView contentContainerStyle={styles.container}>
+        <View style={styles.block}>
+          <Text style={[styles.heading, { color: theme.text }]}>Your account has been deleted</Text>
+          <Text style={{ color: theme.muted, fontSize: 15 }}>
+            Your dogs, goals and logged activity are gone. This device still has to finish signing out.
+          </Text>
+          {signOutError ? <ErrorMessage>{signOutError}</ErrorMessage> : null}
+          <PrimaryButton label="Finish signing out" onPress={retrySignOut} />
+        </View>
+      </ScrollView>
+    );
   }
 
   return (
